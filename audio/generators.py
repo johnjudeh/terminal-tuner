@@ -24,7 +24,9 @@ def _quantize(
     return quantized.round() if isinstance(quantized, np.ndarray) else round(quantized)
 
 
-def create_sound_wave(frequency: int, frame_rate: int, channels: int = 1) -> bytes:
+def create_sound_wave(
+    frequency: int, frame_rate: int = STANDARD_FRAME_RATE, channels: int = 1
+) -> bytes:
     if channels > 1:
         raise ValueError
     x = np.linspace(0, 2 * np.pi, frame_rate)
