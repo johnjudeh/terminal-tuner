@@ -1,1 +1,1 @@
-from tests.audio.pitch.dft import *
+from tests.audio.pitch.test_dft import *

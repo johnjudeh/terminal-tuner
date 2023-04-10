@@ -1,4 +1,4 @@
-from audio.utils import find_nearest_note
+from audio.pitch.utils import find_nearest_note
 from scipy.fft import fft, fftfreq
 from scipy.io import wavfile
 import numpy as np

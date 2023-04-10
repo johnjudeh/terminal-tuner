@@ -1,4 +1,4 @@
-from audio.utils import find_note_frequency, find_nearest_note
+from audio.pitch.utils import find_note_frequency, find_nearest_note
 
 
 def test_find_note_frequency():
