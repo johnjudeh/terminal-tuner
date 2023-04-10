@@ -1,26 +1,46 @@
-from collections import Counter
-from graph import plot_frames
-from audio.pitch import calculate_pitch
-from audio.parsers import read_wave_file
-from audio.generators import make_sound, create_sound_wave
+from audio.pitch.dft import calculate_pitch
+from audio.constants import (
+    STANDARD_FRAME_RATE,
+    STANDARD_SAMPLE_WIDTH,
+    STANDARD_CHANNELS,
+)
+import sys
+from pyaudio import PyAudio, get_format_from_width
+from audio.parsers import numpy_array_from_frames
+import numpy as np
+
+KEYBOARD_INTERRUPT_EXIT_CODE = 130
+
+
+def main() -> None:
+    recording_time_s = 0.5
+    number_of_frames = round(recording_time_s * STANDARD_FRAME_RATE)
+
+    p = PyAudio()
+    stream = p.open(
+        rate=STANDARD_FRAME_RATE,
+        channels=STANDARD_CHANNELS,
+        format=get_format_from_width(STANDARD_SAMPLE_WIDTH),
+        input=True,
+    )
+
+    try:
+        while True:
+            audio_data = numpy_array_from_frames(stream.read(number_of_frames))
+            if np.array_equal(audio_data, np.zeros_like(audio_data)):
+                print("No input data")
+            else:
+                note = calculate_pitch(audio_data)
+                print(note if note else "No note found")
+
+    except KeyboardInterrupt as exc:
+        stream.close()
+        p.terminate()
+        raise exc
 
 
 if __name__ == "__main__":
-    # make_sound(frequency=440)
-    # frames = create_sound_wave(frequency=440, frame_rate=STANDARD_FRAME_RATE)
-    # frequency = calculate_pitch(frames, STANDARD_FRAME_RATE)
-    # print(f"Frequency (Hz): {frequency}")
-    # assert round(frequency) == 440
-    # plot_frames(frames, channels=1)
-
-    frames, params = read_wave_file("examples/A.wav")
-    # frames, params = read_wave_file("examples/82.407.wav")
-    frequency = calculate_pitch(
-        frames,
-        frame_rate=params.framerate,
-        channels=params.nchannels,
-        sample_width=params.sampwidth,
-    )
-    print(f"Frequency (Hz): {frequency}")
-
-    plot_frames(frames, channels=params.nchannels, sample_width=params.sampwidth)
+    try:
+        main()
+    except KeyboardInterrupt:
+        sys.exit(KEYBOARD_INTERRUPT_EXIT_CODE)

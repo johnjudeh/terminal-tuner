@@ -3,10 +3,12 @@ from scipy.fft import fft, fftfreq
 from scipy.io import wavfile
 import numpy as np
 from math import ceil
-from typing import Optional
+from typing import Tuple
+from audio.constants import STANDARD_FRAME_RATE
+from graph import plot_graph
 
 
-def _find_base_frequency(frequencies: list[float]) -> Optional[float]:
+def _find_base_frequency(frequencies: list[float]) -> float | None:
     """
     Given a list of frequencies, finds the base frequency and returns it. Because
     strings vibrate at frequencies that can form standing waves, the base frequency
@@ -35,7 +37,28 @@ def _find_base_frequency(frequencies: list[float]) -> Optional[float]:
             cleaned_frequencies.remove(base_freq_candidate)
 
 
-def calculate_pitch(filename: str) -> str:
+def calculate_dft(
+    audio_data: np.ndarray, frame_rate: int = STANDARD_FRAME_RATE
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Use a Discrete Fourier Transform to find the frequencies components of
+    this audio data, throwing away negative half.
+    """
+    sample_size = len(audio_data)
+    x_freq = fftfreq(sample_size, 1 / frame_rate)[: sample_size // 2]
+    y_freq = fft(audio_data)[: sample_size // 2]
+    y_freq = np.abs(y_freq)
+    return x_freq, y_freq
+
+
+def plot_dft(audio_data: np.ndarray, frame_rate: int = STANDARD_FRAME_RATE) -> None:
+    x_freq, y_freq = calculate_dft(audio_data, frame_rate)
+    plot_graph(x_freq, y_freq)
+
+
+def calculate_pitch(
+    audio_data: np.ndarray, frame_rate: int = STANDARD_FRAME_RATE
+) -> str:
     """
     Given a wave file with a musical string being played, finds the pitch of the of
     the note it's tuned to. Uses the Discrete Fourier Transform (DFT) method to
@@ -43,14 +66,7 @@ def calculate_pitch(filename: str) -> str:
     passed to it. From there, it shows the frequencies of those componenets, from
     which we can calculate the base frequency which is the string being played.
     """
-    frame_rate, audio_data = wavfile.read(filename)
-    sample_size = len(audio_data)
-
-    # Use a Discrete Fourier Transform to find the frequencies components of
-    # this audio data, throwing away negative half.
-    x_freq = fftfreq(sample_size, 1 / frame_rate)[: sample_size // 2]
-    y_freq = fft(audio_data)[: sample_size // 2]
-    y_freq = np.abs(y_freq)
+    x_freq, y_freq = calculate_dft(audio_data, frame_rate)
 
     # Finding the top N frequencies in the DFT spectrum
     # TODO: Keep as np array, converted to list for speed
@@ -67,7 +83,7 @@ def calculate_pitch(filename: str) -> str:
     top_magnitude = top_frequencies[0][1]
 
     # Somewhat arbitrary looking at the data
-    min_magnitude = top_magnitude / 5
+    min_magnitude = top_magnitude / 8
 
     cleaned_top_frequencies = []
 
