@@ -1,15 +1,38 @@
-from audio.pitch.dft import calculate_pitch, _find_base_frequency
+from audio.pitch.dft import calculate_note, _find_base_frequency
 from audio.parsers import numpy_array_from_wave_file
+from audio.constants import STANDARD_FRAME_RATE
+import numpy as np
 
 
-def test_calculate_pitch() -> None:
-    print("Testing audio.pitch.calculate_pitch...", end="")
-    calculate_pitch(numpy_array_from_wave_file("examples/E.wav")) == "E2"
-    calculate_pitch(numpy_array_from_wave_file("examples/A.wav")) == "A2"
-    calculate_pitch(numpy_array_from_wave_file("examples/D.wav")) == "D3"
-    calculate_pitch(numpy_array_from_wave_file("examples/G.wav")) == "G3"
-    calculate_pitch(numpy_array_from_wave_file("examples/B.wav")) == "B3"
-    calculate_pitch(numpy_array_from_wave_file("examples/e_high.wav")) == "E4"
+def _test_samples_of_file_are_note_accurate(
+    filename: str,
+    expected_note: str,
+    sample_size_s: float,
+) -> None:
+    audio_data = numpy_array_from_wave_file(filename)
+    num_of_samples = len(audio_data) / (STANDARD_FRAME_RATE * sample_size_s)
+    samples = np.array_split(audio_data, num_of_samples)
+    for s, sample in enumerate(samples):
+        assert (
+            calculate_note(sample) == expected_note
+        ), f"{expected_note} not found in {filename} sample {s}/{len(samples)}"
+
+
+def test_calculate_note() -> None:
+    print("Testing audio.pitch.calculate_note...", end="")
+    notes_to_test = [
+        ("examples/E.wav", "E2"),
+        ("examples/A.wav", "A2"),
+        ("examples/D.wav", "D3"),
+        ("examples/G.wav", "G3"),
+        ("examples/B.wav", "B3"),
+        ("examples/e_high.wav", "E4"),
+    ]
+    for filename, note in notes_to_test:
+        assert (
+            calculate_note(numpy_array_from_wave_file(filename)) == note
+        ), f"{note} not found in {filename}"
+        _test_samples_of_file_are_note_accurate(filename, note, 1)
     print("OK")
 
 
@@ -25,5 +48,7 @@ def test_find_base_frequency() -> None:
     assert _find_base_frequency([20.0, 39.0, 59.0]) == 20.0
     # Bad frequencies
     assert _find_base_frequency([18.0, 19.0, 20.0, 40.0, 60.0]) == 20.0
-    assert _find_base_frequency([20.0, 44.0, 66.0]) == None
+    assert _find_base_frequency([20.0, 44.0, 68.0]) == None
+    # Ghost frequencies
+    assert _find_base_frequency([40.0, 60.0]) == 20.0
     print("OK")

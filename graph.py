@@ -3,10 +3,19 @@ import numpy as np
 from audio.parsers import read_wave_file
 
 
-def plot_graph(x: np.array, y: np.array) -> None:
+def plot_graph(
+    x: np.array,
+    y: np.array,
+    xlim: tuple | None = None,
+    ylim: tuple | None = None,
+) -> None:
     fig, ax = plt.subplots()
     ax.plot(x, y)
     ax.scatter(x, y, s=15)
+    if xlim:
+        plt.xlim(xlim)
+    if ylim:
+        plt.ylim(ylim)
     plt.show()
 
 

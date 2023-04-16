@@ -1,4 +1,4 @@
-from audio.pitch.dft import calculate_pitch
+from audio.pitch.dft import calculate_note
 from audio.constants import (
     STANDARD_FRAME_RATE,
     STANDARD_SAMPLE_WIDTH,
@@ -13,7 +13,7 @@ KEYBOARD_INTERRUPT_EXIT_CODE = 130
 
 
 def main() -> None:
-    recording_time_s = 0.5
+    recording_time_s = 1
     number_of_frames = round(recording_time_s * STANDARD_FRAME_RATE)
 
     p = PyAudio()
@@ -30,7 +30,7 @@ def main() -> None:
             if np.array_equal(audio_data, np.zeros_like(audio_data)):
                 print("No input data")
             else:
-                note = calculate_pitch(audio_data)
+                note = calculate_note(audio_data)
                 print(note if note else "No note found")
 
     except KeyboardInterrupt as exc:

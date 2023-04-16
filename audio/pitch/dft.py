@@ -8,6 +8,16 @@ from audio.constants import STANDARD_FRAME_RATE
 from graph import plot_graph
 
 
+def _find_num_of_perfect_factorizations(frequencies: list[float], factor: float) -> int:
+    MULTIPLE_THRESHOLD = 0.05
+    factored_frequencies = [f / factor for f in frequencies]
+    factored_frequencies_errors = [abs(f - round(f)) for f in factored_frequencies]
+    count_of_perfect_factorizations = sum(
+        1 if f <= MULTIPLE_THRESHOLD else 0 for f in factored_frequencies_errors
+    )
+    return count_of_perfect_factorizations
+
+
 def _find_base_frequency(frequencies: list[float]) -> float | None:
     """
     Given a list of frequencies, finds the base frequency and returns it. Because
@@ -16,23 +26,43 @@ def _find_base_frequency(frequencies: list[float]) -> float | None:
     (overtones). This function finds the lowest frequency where the majority of the
     other frequencies are multiples of that (within a certain threshold)
     """
-    MULTIPLE_THRESHOLD = 0.05
+    ELECTRICAL_HUM = 50
+    ELECTRICAL_HUM_THRESHOLD = 5
     majority_of_frequencies = ceil(len(frequencies) / 2)
     cleaned_frequencies = sorted(frequencies)
 
     while True:
-        if len(cleaned_frequencies) == 0:
+        if len(cleaned_frequencies) < majority_of_frequencies:
             return None
 
         base_freq_candidate = cleaned_frequencies[0]
+        # Occasionally we have a missing note which is the true note being played.
+        # Trying a ghost frequency before discarding a base_freq_candidate will help
+        # us see this if that missing note is half the base_freq_candidate. E.g. G3
+        ghost_freq = base_freq_candidate / 2
 
-        factored_frequencies = [f / base_freq_candidate for f in cleaned_frequencies]
-        factored_frequencies_errors = [abs(f - round(f)) for f in factored_frequencies]
-        count_of_passing_frequencies = sum(
-            1 if f <= MULTIPLE_THRESHOLD else 0 for f in factored_frequencies_errors
+        base_freq_factorization_count = _find_num_of_perfect_factorizations(
+            cleaned_frequencies, base_freq_candidate
         )
-        if count_of_passing_frequencies >= majority_of_frequencies:
-            return base_freq_candidate
+        ghost_freq_factorization_count = _find_num_of_perfect_factorizations(
+            cleaned_frequencies, ghost_freq
+        )
+
+        ghost_freq_passes = ghost_freq_factorization_count >= majority_of_frequencies
+        base_freq_passes = base_freq_factorization_count >= majority_of_frequencies
+
+        # This covers the rare case that the electrical hum is in fact a
+        # factor of the overtones. This is rare but happens for D3.
+        def is_electircal_hum(freq: float) -> bool:
+            return abs(freq - ELECTRICAL_HUM) <= ELECTRICAL_HUM_THRESHOLD
+
+        if (base_freq_passes and not is_electircal_hum(base_freq_candidate)) or (
+            ghost_freq_passes and not is_electircal_hum(ghost_freq)
+        ):
+            if base_freq_factorization_count >= ghost_freq_factorization_count:
+                return base_freq_candidate
+            else:
+                return ghost_freq
         else:
             cleaned_frequencies.remove(base_freq_candidate)
 
@@ -53,10 +83,10 @@ def calculate_dft(
 
 def plot_dft(audio_data: np.ndarray, frame_rate: int = STANDARD_FRAME_RATE) -> None:
     x_freq, y_freq = calculate_dft(audio_data, frame_rate)
-    plot_graph(x_freq, y_freq)
+    plot_graph(x_freq, y_freq, xlim=(0, 1000))
 
 
-def calculate_pitch(
+def calculate_note(
     audio_data: np.ndarray, frame_rate: int = STANDARD_FRAME_RATE
 ) -> str:
     """
@@ -79,7 +109,7 @@ def calculate_pitch(
 
     # Discarding any duplicate clustered frequencies keeping only the
     # strongest signals.
-    min_diff = 2
+    min_diff = 10
     top_magnitude = top_frequencies[0][1]
 
     # Somewhat arbitrary looking at the data
