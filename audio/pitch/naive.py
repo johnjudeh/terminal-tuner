@@ -6,7 +6,7 @@ from collections import Counter
 # frequency = wavelengths per second
 
 
-def calculate_pitch(
+def calculate_note(
     frames: bytes, frame_rate: int, channels: int = 1, sample_width: int = 2
 ) -> int:
     # Mark each peak of the wave

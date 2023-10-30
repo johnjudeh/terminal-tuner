@@ -1,6 +1,5 @@
-from audio.pitch.utils import find_nearest_note
-from scipy.fft import fft, fftfreq
-from scipy.io import wavfile
+from audio.pitch.utils import find_nearest_note, find_note_frequency, find_steps_away
+from scipy.fft import rfft, fftfreq
 import numpy as np
 from math import ceil
 from typing import Tuple
@@ -18,7 +17,7 @@ def _find_num_of_perfect_factorizations(frequencies: list[float], factor: float)
     return count_of_perfect_factorizations
 
 
-def _find_base_frequency(frequencies: list[float]) -> float | None:
+def _find_fundamental_frequency(frequencies: list[float]) -> float | None:
     """
     Given a list of frequencies, finds the base frequency and returns it. Because
     strings vibrate at frequencies that can form standing waves, the base frequency
@@ -35,36 +34,39 @@ def _find_base_frequency(frequencies: list[float]) -> float | None:
         if len(cleaned_frequencies) < majority_of_frequencies:
             return None
 
-        base_freq_candidate = cleaned_frequencies[0]
+        fundamental_freq_candidate = cleaned_frequencies[0]
         # Occasionally we have a missing note which is the true note being played.
         # Trying a ghost frequency before discarding a base_freq_candidate will help
         # us see this if that missing note is half the base_freq_candidate. E.g. G3
-        ghost_freq = base_freq_candidate / 2
+        ghost_freq = fundamental_freq_candidate / 2
 
-        base_freq_factorization_count = _find_num_of_perfect_factorizations(
-            cleaned_frequencies, base_freq_candidate
+        fundamental_freq_factorization_count = _find_num_of_perfect_factorizations(
+            cleaned_frequencies, fundamental_freq_candidate
         )
         ghost_freq_factorization_count = _find_num_of_perfect_factorizations(
             cleaned_frequencies, ghost_freq
         )
 
         ghost_freq_passes = ghost_freq_factorization_count >= majority_of_frequencies
-        base_freq_passes = base_freq_factorization_count >= majority_of_frequencies
+        fundamental_freq_passes = (
+            fundamental_freq_factorization_count >= majority_of_frequencies
+        )
 
         # This covers the rare case that the electrical hum is in fact a
         # factor of the overtones. This is rare but happens for D3.
         def is_electircal_hum(freq: float) -> bool:
             return abs(freq - ELECTRICAL_HUM) <= ELECTRICAL_HUM_THRESHOLD
 
-        if (base_freq_passes and not is_electircal_hum(base_freq_candidate)) or (
-            ghost_freq_passes and not is_electircal_hum(ghost_freq)
-        ):
-            if base_freq_factorization_count >= ghost_freq_factorization_count:
-                return base_freq_candidate
+        if (
+            fundamental_freq_passes
+            and not is_electircal_hum(fundamental_freq_candidate)
+        ) or (ghost_freq_passes and not is_electircal_hum(ghost_freq)):
+            if fundamental_freq_factorization_count >= ghost_freq_factorization_count:
+                return fundamental_freq_candidate
             else:
                 return ghost_freq
         else:
-            cleaned_frequencies.remove(base_freq_candidate)
+            cleaned_frequencies.remove(fundamental_freq_candidate)
 
 
 def calculate_dft(
@@ -76,7 +78,7 @@ def calculate_dft(
     """
     sample_size = len(audio_data)
     x_freq = fftfreq(sample_size, 1 / frame_rate)[: sample_size // 2]
-    y_freq = fft(audio_data)[: sample_size // 2]
+    y_freq = rfft(audio_data)[: sample_size // 2]
     y_freq = np.abs(y_freq)
     return x_freq, y_freq
 
@@ -88,7 +90,7 @@ def plot_dft(audio_data: np.ndarray, frame_rate: int = STANDARD_FRAME_RATE) -> N
 
 def calculate_note(
     audio_data: np.ndarray, frame_rate: int = STANDARD_FRAME_RATE
-) -> str:
+) -> Tuple[str, float]:
     """
     Given a wave file with a musical string being played, finds the pitch of the of
     the note it's tuned to. Uses the Discrete Fourier Transform (DFT) method to
@@ -129,6 +131,13 @@ def calculate_note(
         else:
             cleaned_top_frequencies.append(freq)
 
-    base_frequency = _find_base_frequency(cleaned_top_frequencies)
-    base_note = find_nearest_note(base_frequency) if base_frequency else None
-    return base_note
+    fundamental_frequency = _find_fundamental_frequency(cleaned_top_frequencies)
+    nearest_note = (
+        find_nearest_note(fundamental_frequency) if fundamental_frequency else None
+    )
+    steps_away = (
+        find_steps_away(fundamental_frequency, find_note_frequency(nearest_note))
+        if nearest_note
+        else None
+    )
+    return nearest_note, steps_away

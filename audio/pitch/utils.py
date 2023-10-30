@@ -1,11 +1,10 @@
 from math import log2
-
-BASE_FREQUENCY = 440
-BASE_LETTER = "A"
-BASE_OCTAVE = 4
-
-NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-BASE_LETTER_INDEX = NOTES.index(BASE_LETTER)
+from audio.constants import (
+    NOTES,
+    BASE_FREQUENCY,
+    BASE_OCTAVE,
+    BASE_LETTER_INDEX,
+)
 
 
 def find_note_frequency(note: str) -> float:
@@ -17,8 +16,16 @@ def find_note_frequency(note: str) -> float:
     return round(frequency, 3)
 
 
+def _find_steps_away(current_freq: float, target_freq: float) -> float:
+    return 12 * log2(current_freq / target_freq)
+
+
+def find_steps_away(current_freq: float, target_freq: float) -> float:
+    return ((current_freq - target_freq) / target_freq) * 100
+
+
 def find_nearest_note(frequency: float) -> str:
-    steps_away = round(12 * log2(frequency / BASE_FREQUENCY))
+    steps_away = round(_find_steps_away(frequency, BASE_FREQUENCY))
     letter_index = (BASE_LETTER_INDEX + steps_away) % 12
     letter = NOTES[letter_index]
     octaves_away = (BASE_LETTER_INDEX + steps_away) // 12

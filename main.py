@@ -30,8 +30,10 @@ def main() -> None:
             if np.array_equal(audio_data, np.zeros_like(audio_data)):
                 print("No input data")
             else:
-                note = calculate_note(audio_data)
-                print(note if note else "No note found")
+                nearest_note, steps_away = calculate_note(audio_data)
+                print(
+                    f"{nearest_note} {steps_away}" if nearest_note else "No note found"
+                )
 
     except KeyboardInterrupt as exc:
         stream.close()
